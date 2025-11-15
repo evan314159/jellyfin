@@ -20,9 +20,10 @@ namespace Jellyfin.Database.Implementations;
 /// <param name="options">The database context options.</param>
 /// <param name="logger">Logger.</param>
 /// <param name="jellyfinDatabaseProvider">The provider for the database engine specific operations.</param>
-/// <param name="entityFrameworkCoreLocking">The locking behavior.</param>
-public class JellyfinDbContext(DbContextOptions<JellyfinDbContext> options, ILogger<JellyfinDbContext> logger, IJellyfinDatabaseProvider jellyfinDatabaseProvider, IEntityFrameworkCoreLockingBehavior entityFrameworkCoreLocking) : DbContext(options)
+public class JellyfinDbContext(DbContextOptions<JellyfinDbContext> options, ILogger<JellyfinDbContext> logger, IJellyfinDatabaseProvider jellyfinDatabaseProvider) : DbContext(options)
 {
+    private readonly IEntityFrameworkCoreLockingBehavior _lockingBehavior = jellyfinDatabaseProvider.LockingBehavior;
+
     /// <summary>
     /// Gets the <see cref="DbSet{TEntity}"/> containing the access schedules.
     /// </summary>
@@ -262,7 +263,7 @@ public class JellyfinDbContext(DbContextOptions<JellyfinDbContext> options, ILog
         try
         {
             var result = -1;
-            await entityFrameworkCoreLocking.OnSaveChangesAsync(this, async () =>
+            await _lockingBehavior.OnSaveChangesAsync(this, async () =>
             {
                 result = await base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken).ConfigureAwait(false);
             }).ConfigureAwait(false);
@@ -283,7 +284,7 @@ public class JellyfinDbContext(DbContextOptions<JellyfinDbContext> options, ILog
         try
         {
             var result = -1;
-            entityFrameworkCoreLocking.OnSaveChanges(this, () =>
+            _lockingBehavior.OnSaveChanges(this, () =>
             {
                 result = base.SaveChanges(acceptAllChangesOnSuccess);
             });

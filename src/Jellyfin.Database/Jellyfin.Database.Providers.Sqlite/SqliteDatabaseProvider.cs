@@ -7,6 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Jellyfin.Database.Implementations;
 using Jellyfin.Database.Implementations.DbConfiguration;
+using Jellyfin.Database.Implementations.Locking;
 using MediaBrowser.Common.Configuration;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
@@ -24,24 +25,34 @@ public sealed class SqliteDatabaseProvider : IJellyfinDatabaseProvider
     private const string BackupFolderName = "SQLiteBackups";
     private readonly IApplicationPaths _applicationPaths;
     private readonly ILogger<SqliteDatabaseProvider> _logger;
+    private readonly ILoggerFactory _loggerFactory;
+    private IEntityFrameworkCoreLockingBehavior? _lockingBehavior;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="SqliteDatabaseProvider"/> class.
     /// </summary>
     /// <param name="applicationPaths">Service to construct the fallback when the old data path configuration is used.</param>
-    /// <param name="logger">A logger.</param>
-    public SqliteDatabaseProvider(IApplicationPaths applicationPaths, ILogger<SqliteDatabaseProvider> logger)
+    /// <param name="loggerFactory">The logger factory.</param>
+    public SqliteDatabaseProvider(IApplicationPaths applicationPaths, ILoggerFactory loggerFactory)
     {
         _applicationPaths = applicationPaths;
-        _logger = logger;
+        _loggerFactory = loggerFactory;
+        _logger = _loggerFactory.CreateLogger<SqliteDatabaseProvider>();
     }
 
     /// <inheritdoc/>
     public IDbContextFactory<JellyfinDbContext>? DbContextFactory { get; set; }
 
     /// <inheritdoc/>
+    public IEntityFrameworkCoreLockingBehavior LockingBehavior =>
+        _lockingBehavior ?? CreateLockingBehavior(DatabaseLockingBehaviorTypes.NoLock);
+
+    /// <inheritdoc/>
     public void Initialise(DbContextOptionsBuilder options, DatabaseConfigurationOptions databaseConfiguration)
     {
+        _lockingBehavior = CreateLockingBehavior(databaseConfiguration.LockingBehavior);
+        _lockingBehavior.Initialise(options);
+
         static T? GetOption<T>(ICollection<CustomDatabaseOption>? options, string key, Func<string, T> converter, Func<T>? defaultValue = null)
         {
             if (options is null)
@@ -204,5 +215,27 @@ public sealed class SqliteDatabaseProvider : IJellyfinDatabaseProvider
         """;
 
         await dbContext.Database.ExecuteSqlRawAsync(deleteAllQuery).ConfigureAwait(false);
+    }
+
+    private IEntityFrameworkCoreLockingBehavior CreateLockingBehavior(DatabaseLockingBehaviorTypes lockingBehaviorType)
+    {
+        return lockingBehaviorType switch
+        {
+            DatabaseLockingBehaviorTypes.NoLock => new NoLockBehavior(_loggerFactory),
+            DatabaseLockingBehaviorTypes.Pessimistic => new PessimisticLockBehavior(_loggerFactory),
+            DatabaseLockingBehaviorTypes.Optimistic => new OptimisticLockBehavior(
+                medianFirstRetryDelay: TimeSpan.FromMilliseconds(10),
+                maxDelay: TimeSpan.FromMilliseconds(500),
+                maxRetries: 15,
+                shouldRetry: ShouldRetry,
+                loggerFactory: _loggerFactory),
+            _ => throw new ArgumentOutOfRangeException(nameof(lockingBehaviorType), lockingBehaviorType, null)
+        };
+    }
+
+    private static bool ShouldRetry(Exception? exception)
+    {
+        return exception?.Message.Contains("database is locked", StringComparison.InvariantCultureIgnoreCase) == true ||
+               exception?.Message.Contains("database is busy", StringComparison.InvariantCultureIgnoreCase) == true;
     }
 }

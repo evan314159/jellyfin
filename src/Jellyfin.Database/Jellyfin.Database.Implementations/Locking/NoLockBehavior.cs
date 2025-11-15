@@ -15,10 +15,10 @@ public class NoLockBehavior : IEntityFrameworkCoreLockingBehavior
     /// <summary>
     /// Initializes a new instance of the <see cref="NoLockBehavior"/> class.
     /// </summary>
-    /// <param name="logger">The Application logger.</param>
-    public NoLockBehavior(ILogger<NoLockBehavior> logger)
+    /// <param name="loggerFactory">The logger factory.</param>
+    public NoLockBehavior(ILoggerFactory loggerFactory)
     {
-        _logger = logger;
+        _logger = loggerFactory.CreateLogger<NoLockBehavior>();
     }
 
     /// <inheritdoc/>

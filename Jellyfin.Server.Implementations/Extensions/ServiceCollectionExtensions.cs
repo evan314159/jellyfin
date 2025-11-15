@@ -12,6 +12,7 @@ using MediaBrowser.Controller.Configuration;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using JellyfinDbProviderFactory = System.Func<System.IServiceProvider, Jellyfin.Database.Implementations.IJellyfinDatabaseProvider>;
 
 namespace Jellyfin.Server.Implementations.Extensions;
@@ -96,8 +97,7 @@ public static class ServiceCollectionExtensions
                 // when nothing is setup via new Database configuration, fallback to SQLite with default settings.
                 efCoreConfiguration = new DatabaseConfigurationOptions()
                 {
-                    DatabaseType = "Jellyfin-SQLite",
-                    LockingBehavior = DatabaseLockingBehaviorTypes.NoLock
+                    DatabaseType = "Jellyfin-SQLite"
                 };
                 configurationManager.SaveConfiguration("database", efCoreConfiguration);
             }
@@ -123,25 +123,9 @@ public static class ServiceCollectionExtensions
 
         serviceCollection.AddSingleton<IJellyfinDatabaseProvider>(providerFactory!);
 
-        switch (efCoreConfiguration.LockingBehavior)
-        {
-            case DatabaseLockingBehaviorTypes.NoLock:
-                serviceCollection.AddSingleton<IEntityFrameworkCoreLockingBehavior, NoLockBehavior>();
-                break;
-            case DatabaseLockingBehaviorTypes.Pessimistic:
-                serviceCollection.AddSingleton<IEntityFrameworkCoreLockingBehavior, PessimisticLockBehavior>();
-                break;
-            case DatabaseLockingBehaviorTypes.Optimistic:
-                serviceCollection.AddSingleton<IEntityFrameworkCoreLockingBehavior, OptimisticLockBehavior>();
-                break;
-        }
-
         serviceCollection.AddPooledDbContextFactory<JellyfinDbContext>((serviceProvider, opt) =>
         {
-            var provider = serviceProvider.GetRequiredService<IJellyfinDatabaseProvider>();
-            provider.Initialise(opt, efCoreConfiguration);
-            var lockingBehavior = serviceProvider.GetRequiredService<IEntityFrameworkCoreLockingBehavior>();
-            lockingBehavior.Initialise(opt);
+            serviceProvider.GetRequiredService<IJellyfinDatabaseProvider>().Initialise(opt, efCoreConfiguration);
         });
 
         return serviceCollection;

@@ -25,12 +25,11 @@ public class PessimisticLockBehavior : IEntityFrameworkCoreLockingBehavior
     /// <summary>
     /// Initializes a new instance of the <see cref="PessimisticLockBehavior"/> class.
     /// </summary>
-    /// <param name="logger">The application logger.</param>
     /// <param name="loggerFactory">The logger factory.</param>
-    public PessimisticLockBehavior(ILogger<PessimisticLockBehavior> logger, ILoggerFactory loggerFactory)
+    public PessimisticLockBehavior(ILoggerFactory loggerFactory)
     {
-        _logger = logger;
         _loggerFactory = loggerFactory;
+        _logger = _loggerFactory.CreateLogger<PessimisticLockBehavior>();
     }
 
     private static ReaderWriterLockSlim DatabaseLock { get; } = new(LockRecursionPolicy.SupportsRecursion);

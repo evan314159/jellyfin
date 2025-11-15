@@ -3,7 +3,9 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Jellyfin.Database.Implementations.DbConfiguration;
+using Jellyfin.Database.Implementations.Locking;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace Jellyfin.Database.Implementations;
 
@@ -16,6 +18,11 @@ public interface IJellyfinDatabaseProvider
     /// Gets or Sets the Database Factory when initialisaition is done.
     /// </summary>
     IDbContextFactory<JellyfinDbContext>? DbContextFactory { get; set; }
+
+    /// <summary>
+    /// Gets the locking behavior for this database provider.
+    /// </summary>
+    IEntityFrameworkCoreLockingBehavior LockingBehavior { get; }
 
     /// <summary>
     /// Initialises jellyfins EFCore database access.
