@@ -250,6 +250,7 @@
  - [Daniel Aquino](https://github.com/chino)
  - [klizas](https://github.com/klizas)
  - [p27ZuH6CNAdzr](https://github.com/p27ZuH6CNAdzr)
+ - [evan314159](https://github.com/evan314159)
 
 # Emby Contributors
 

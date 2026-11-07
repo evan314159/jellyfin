@@ -36,7 +36,9 @@ internal class MigrateRatingLevels : IDatabaseMigrationRoutine
         _logger.LogInformation("Recalculating parental rating levels based on rating string.");
         using var context = _provider.CreateDbContext();
         using var transaction = context.Database.BeginTransaction();
-        var ratings = context.BaseItems.AsNoTracking().Select(e => e.OfficialRating).Distinct();
+        // Materialise the ratings first: the loop runs ExecuteUpdate on the same connection, and providers that allow only
+        // one active command per connection (Npgsql) refuse a new command while this query's reader is still open.
+        var ratings = context.BaseItems.AsNoTracking().Select(e => e.OfficialRating).Distinct().ToList();
         foreach (var rating in ratings)
         {
             if (string.IsNullOrEmpty(rating))
