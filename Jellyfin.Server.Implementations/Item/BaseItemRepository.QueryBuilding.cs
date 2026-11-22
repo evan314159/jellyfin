@@ -371,7 +371,7 @@ public sealed partial class BaseItemRepository
 
         if (orderedQuery is null)
         {
-            return query.OrderBy(e => e.SortName);
+            return query.OrderBy(e => e.SortName).ThenBy(e => e.Id);
         }
 
         // Add SortName as final tiebreaker
@@ -380,7 +380,9 @@ public sealed partial class BaseItemRepository
             orderedQuery = orderedQuery.ThenBy(e => e.SortName);
         }
 
-        return orderedQuery;
+        // Id breaks any tie left, so paged queries see one order on every page. Without it the
+        // database may order tied rows differently per query, repeating some items and skipping others.
+        return orderedQuery.ThenBy(e => e.Id);
     }
 
     private IQueryable<BaseItemEntity> ApplySeriesDatePlayedOrder(
@@ -415,8 +417,8 @@ public sealed partial class BaseItemRepository
         var seriesSort = orderBy.First(o => o.OrderBy == ItemSortBy.SeriesDatePlayed);
 
         return seriesSort.SortOrder == SortOrder.Ascending
-            ? joined.OrderBy(x => x.MaxDate).ThenBy(x => x.Item.SortName).Select(x => x.Item)
-            : joined.OrderByDescending(x => x.MaxDate).ThenBy(x => x.Item.SortName).Select(x => x.Item);
+            ? joined.OrderBy(x => x.MaxDate).ThenBy(x => x.Item.SortName).ThenBy(x => x.Item.Id).Select(x => x.Item)
+            : joined.OrderByDescending(x => x.MaxDate).ThenBy(x => x.Item.SortName).ThenBy(x => x.Item.Id).Select(x => x.Item);
     }
 
     /// <summary>
